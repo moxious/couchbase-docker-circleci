@@ -34,13 +34,15 @@ test:
         # A running cluster will respond with cluster status.
         - curl http://$COUCHBASE_HOST:$COUCHBASE_PORT/pools/default
     post:
+        # For troubleshooting, dump the docker logs, save them as an artifact for inspection.
         - docker logs --tail=200 couchtest > couchbase.log
     override:
         - docker ps
 
 deployment:
-    release:
-        commands:
+    staging:
+        branch: master
+        commands: 
             - docker tag -f $IMAGE_NAME:$CIRCLE_BUILD_NUM $DOCKER_REPO/$IMAGE_NAME:latest
             - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
             - docker push $DOCKER_REPO/$IMAGE_NAME:latest
