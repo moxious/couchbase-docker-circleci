@@ -1,0 +1,46 @@
+machine:
+    services:
+        - docker
+    node:
+        version: 5.5
+    pre:
+        - sudo curl -L -o /usr/bin/docker 'https://s3-external-1.amazonaws.com/circle-downloads/docker-1.9.1-circleci'
+        - sudo chmod 0755 /usr/bin/docker
+    environment:
+        IMAGE_NAME: couchbase
+        COUCHBASE_HOST: localhost
+        COUCHBASE_PORT: 8091
+        DOCKER_REPO: mdavidallen
+
+general:
+    build_dir: .
+    artifacts:
+        - ./couchbase.log
+
+dependencies:
+    pre:
+        - docker version
+        - docker info
+    override:
+        - docker info
+        - docker ps
+        - docker images
+        - docker build -t $IMAGE_NAME:$CIRCLE_BUILD_NUM .
+
+test:
+    pre:
+        - docker run -d --name couchtest -p 8090-8099:8090-8099 -p 9110:9110 -p 11210:11210 -p 18091:18091 -p 18092:18092 -t $IMAGE_NAME:$CIRCLE_BUILD_NUM
+        - sleep 60
+        # A running cluster will respond with cluster status.
+        - curl http://$COUCHBASE_HOST:$COUCHBASE_PORT/pools/default
+    post:
+        - docker logs --tail=200 couchtest > couchbase.log
+    override:
+        - docker ps
+
+deployment:
+    release:
+        commands:
+            - docker tag -f $IMAGE_NAME:$CIRCLE_BUILD_NUM $DOCKER_REPO/$IMAGE_NAME:latest
+            - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+            - docker push $DOCKER_REPO/$IMAGE_NAME:latest
